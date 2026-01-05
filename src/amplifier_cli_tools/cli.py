@@ -1,7 +1,7 @@
 """CLI entry points for amplifier-cli-tools.
 
 Thin layer that parses arguments and calls business logic modules.
-All business logic is in dev.py and reset.py - this module only handles:
+All business logic is in dev.py, reset.py, and setup.py - this module only handles:
 - Argument parsing via argparse
 - Error handling and exit codes
 - User confirmation prompts
@@ -10,6 +10,7 @@ Entry Points
 ------------
 - main_dev(): amplifier-dev command
 - main_reset(): amplifier-reset command
+- main_setup(): amplifier-setup command
 """
 
 import argparse
@@ -192,6 +193,55 @@ def main_reset() -> int:
             skip_confirm=True,  # We already confirmed above
             no_install=args.no_install,
             no_launch=args.no_launch,
+        )
+        return 0 if success else 1
+
+    except KeyboardInterrupt:
+        print("\nAborted.")
+        return 130
+    except Exception as e:
+        print(f"Error: {e}", file=sys.stderr)
+        return 1
+
+
+def main_setup() -> int:
+    """Entry point for amplifier-setup command.
+
+    Runs first-time setup: installs dependencies and creates tmux config.
+
+    Returns:
+        Exit code (0 success, 1 error, 130 keyboard interrupt)
+    """
+    from . import setup
+
+    parser = argparse.ArgumentParser(
+        prog="amplifier-setup",
+        description="First-time setup for amplifier-cli-tools. Installs dependencies and creates config.",
+    )
+    parser.add_argument(
+        "-y",
+        "--yes",
+        action="store_true",
+        help="Non-interactive mode (auto-accept all prompts)",
+    )
+    parser.add_argument(
+        "--skip-tools",
+        action="store_true",
+        help="Skip tool installation",
+    )
+    parser.add_argument(
+        "--skip-tmux",
+        action="store_true",
+        help="Skip tmux.conf creation",
+    )
+
+    args = parser.parse_args()
+
+    try:
+        success = setup.run_setup(
+            interactive=not args.yes,
+            skip_tools=args.skip_tools,
+            skip_tmux=args.skip_tmux,
         )
         return 0 if success else 1
 

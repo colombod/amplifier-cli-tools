@@ -132,7 +132,7 @@ _TOOL_PACKAGES: dict[str, dict[str, str]] = {
     # tool_name: {package_manager: package_name}
     "lazygit": {
         "brew": "lazygit",
-        # lazygit on apt requires PPA, so we don't auto-install
+        # Linux uses GitHub releases - see _install_lazygit_linux()
     },
     "mc": {
         "brew": "mc",
@@ -144,7 +144,91 @@ _TOOL_PACKAGES: dict[str, dict[str, str]] = {
         "apt": "tmux",
         "dnf": "tmux",
     },
+    "git": {
+        "brew": "git",
+        "apt": "git",
+        "dnf": "git",
+    },
 }
+
+
+def _get_arch() -> str:
+    """Get system architecture for downloads."""
+    import platform as plat
+    machine = plat.machine().lower()
+    if machine in ("x86_64", "amd64"):
+        return "x86_64"
+    elif machine in ("aarch64", "arm64"):
+        return "arm64"
+    return machine
+
+
+def _install_lazygit_linux() -> bool:
+    """Install lazygit on Linux via GitHub releases.
+    
+    Returns:
+        True if installation successful, False otherwise.
+    """
+    import json
+    import urllib.request
+    import tarfile
+    import tempfile
+    
+    print("Installing lazygit from GitHub releases...")
+    
+    try:
+        # Get latest version
+        url = "https://api.github.com/repos/jesseduffield/lazygit/releases/latest"
+        with urllib.request.urlopen(url, timeout=30) as resp:
+            data = json.loads(resp.read().decode())
+            version = data["tag_name"].lstrip("v")
+        
+        arch = _get_arch()
+        if arch not in ("x86_64", "arm64"):
+            print(f"Unsupported architecture: {arch}")
+            return False
+        
+        # Download tarball
+        tarball_url = (
+            f"https://github.com/jesseduffield/lazygit/releases/download/"
+            f"v{version}/lazygit_{version}_Linux_{arch}.tar.gz"
+        )
+        
+        with tempfile.TemporaryDirectory() as tmpdir:
+            tarball_path = Path(tmpdir) / "lazygit.tar.gz"
+            print(f"Downloading lazygit v{version}...")
+            urllib.request.urlretrieve(tarball_url, tarball_path)
+            
+            # Extract
+            with tarfile.open(tarball_path, "r:gz") as tar:
+                tar.extract("lazygit", tmpdir)
+            
+            lazygit_bin = Path(tmpdir) / "lazygit"
+            
+            # Install to /usr/local/bin (needs sudo) or ~/.local/bin
+            local_bin = Path.home() / ".local" / "bin"
+            if _has_sudo():
+                result = run(
+                    ["sudo", "install", str(lazygit_bin), "-D", "-t", "/usr/local/bin/"],
+                    check=False,
+                    capture=False,
+                )
+                if result.returncode == 0:
+                    print("Successfully installed lazygit to /usr/local/bin")
+                    return True
+            
+            # Fallback to ~/.local/bin
+            local_bin.mkdir(parents=True, exist_ok=True)
+            dest = local_bin / "lazygit"
+            shutil.copy2(lazygit_bin, dest)
+            dest.chmod(0o755)
+            print(f"Successfully installed lazygit to {dest}")
+            print(f"Make sure {local_bin} is in your PATH")
+            return True
+            
+    except Exception as e:
+        print(f"Failed to install lazygit: {e}")
+        return False
 
 
 def _detect_package_manager() -> str | None:
@@ -195,6 +279,10 @@ def try_install_tool(name: str) -> bool:
     if pkg_manager is None:
         print(f"No supported package manager found. Please install '{name}' manually.")
         return False
+
+    # Special case: lazygit on Linux uses GitHub releases
+    if name == "lazygit" and platform.system() == "Linux":
+        return _install_lazygit_linux()
 
     # Get package name for this tool and package manager
     tool_mapping = _TOOL_PACKAGES.get(name, {})

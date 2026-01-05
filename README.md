@@ -8,6 +8,24 @@ CLI tools for Amplifier development workflows.
 uv tool install git+https://github.com/bkrabach/amplifier-cli-tools
 ```
 
+## First-Time Setup
+
+Run the setup command to install dependencies and configure tmux:
+
+```bash
+amplifier-setup
+```
+
+This will:
+- Check for and install required tools (git, tmux)
+- Check for and install optional tools (lazygit, mc)
+- Create a minimal `~/.tmux.conf` if you don't have one (with mouse support, keybindings, etc.)
+
+**Options:**
+- `-y, --yes` - Non-interactive mode (auto-accept all prompts)
+- `--skip-tools` - Skip tool installation
+- `--skip-tmux` - Skip tmux.conf creation
+
 ## Commands
 
 ### amplifier-dev
@@ -40,7 +58,7 @@ amplifier-dev --destroy ~/work/my-feature
 - Git repository with Amplifier repos as submodules
 - AGENTS.md file for workspace context
 - tmux session with windows:
-  - `main` - Amplifier CLI
+  - `amplifier` - Amplifier CLI
   - `shell` - Two shell panes
   - `git` - lazygit
   - `files` - mc (midnight commander)
@@ -109,12 +127,25 @@ preserve = ["projects"]
 
 **Runtime:**
 - Python 3.11+
-- tmux
 - git
+- tmux
 
-**Optional tools (windows skipped if missing):**
+Run `amplifier-setup` to automatically install missing tools.
+
+**Optional tools (windows show instructions if missing):**
 - lazygit - for git window
 - mc (midnight commander) - for files window
+
+## Platform Support
+
+Works on:
+- **WSL/Ubuntu** with Windows Terminal or any terminal
+- **macOS** with Terminal.app, iTerm2, or any terminal
+- **Linux** with any terminal
+
+The `amplifier-setup` command handles platform-specific installation:
+- macOS: Uses Homebrew
+- Linux: Uses apt/dnf, or GitHub releases for lazygit
 
 ## License
 
