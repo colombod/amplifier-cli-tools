@@ -1,0 +1,32 @@
+# amplifier-cli-tools default configuration
+# Copy to ~/.amplifier-cli-tools.toml to customize
+
+[dev]
+# Repositories to clone as submodules
+repos = [
+    "https://github.com/microsoft/amplifier.git",
+    "https://github.com/microsoft/amplifier-core.git",
+    "https://github.com/microsoft/amplifier-foundation.git",
+]
+
+# Command to run in main window
+main_command = "amplifier run --mode chat"
+
+# Default prompt (empty = no auto-prompt)
+default_prompt = ""
+
+# Path to custom AGENTS.md template (empty = use built-in)
+agents_template = ""
+
+# Tmux windows: name = "command" (empty = shell only)
+[dev.windows]
+shell = ""           # Two panes, just shell
+git = "lazygit"      # lazygit for git operations
+files = "mc"         # midnight commander for file browsing
+
+[reset]
+# Source for reinstalling amplifier
+install_source = "git+https://github.com/microsoft/amplifier"
+
+# Directories to preserve in ~/.amplifier during reset
+preserve = ["projects"]

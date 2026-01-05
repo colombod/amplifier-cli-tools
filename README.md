@@ -1,0 +1,121 @@
+# amplifier-cli-tools
+
+CLI tools for Amplifier development workflows.
+
+## Installation
+
+```bash
+uv tool install git+https://github.com/bkrabach/amplifier-cli-tools
+```
+
+## Commands
+
+### amplifier-dev
+
+Create and launch an Amplifier development workspace with tmux.
+
+```bash
+# Create workspace and launch tmux session
+amplifier-dev ~/work/my-feature
+
+# Setup workspace only (no tmux)
+amplifier-dev --no-tmux ~/work/my-feature
+
+# With a starting prompt for amplifier
+amplifier-dev -p "Let's work on the auth module" ~/work/auth-work
+
+# Destroy workspace when done
+amplifier-dev --destroy ~/work/my-feature
+```
+
+**Options:**
+- `WORKDIR` - Directory for workspace (required)
+- `-d, --destroy` - Destroy session and delete workspace (with confirmation)
+- `-p, --prompt TEXT` - Override default prompt
+- `-e, --extra TEXT` - Append to prompt
+- `-c, --config FILE` - Use specific config file
+- `--no-tmux` - Setup workspace only, don't launch tmux
+
+**What it creates:**
+- Git repository with Amplifier repos as submodules
+- AGENTS.md file for workspace context
+- tmux session with windows:
+  - `main` - Amplifier CLI
+  - `shell` - Two shell panes
+  - `git` - lazygit
+  - `files` - mc (midnight commander)
+
+### amplifier-reset
+
+Reset the Amplifier installation by cleaning cache, uninstalling, and reinstalling.
+
+```bash
+# Reset with default preservation
+amplifier-reset
+
+# Reset everything (including preserved directories)
+amplifier-reset --all
+
+# Just uninstall, don't reinstall
+amplifier-reset --no-install
+
+# Skip confirmation
+amplifier-reset -y
+```
+
+**Options:**
+- `-a, --all` - Remove entire ~/.amplifier including preserved dirs
+- `-y, --yes` - Skip confirmation prompt
+- `--no-install` - Uninstall only, don't reinstall
+- `--no-launch` - Don't launch amplifier after install
+
+## Configuration
+
+Create `~/.amplifier-cli-tools.toml` to customize behavior:
+
+```toml
+[dev]
+# Repositories to clone as submodules
+repos = [
+    "https://github.com/microsoft/amplifier.git",
+    "https://github.com/microsoft/amplifier-core.git",
+    "https://github.com/microsoft/amplifier-foundation.git",
+]
+
+# Command to run in main window
+main_command = "amplifier run --mode chat"
+
+# Default prompt (empty = no auto-prompt)
+default_prompt = ""
+
+# Path to custom AGENTS.md template (empty = use built-in)
+agents_template = ""
+
+# Tmux windows: name = "command" (empty = shell only)
+[dev.windows]
+shell = ""           # Two panes, just shell
+git = "lazygit"
+files = "mc"
+
+[reset]
+# Source for reinstalling amplifier
+install_source = "git+https://github.com/microsoft/amplifier"
+
+# Directories to preserve in ~/.amplifier during reset
+preserve = ["projects"]
+```
+
+## Requirements
+
+**Runtime:**
+- Python 3.11+
+- tmux
+- git
+
+**Optional tools (windows skipped if missing):**
+- lazygit - for git window
+- mc (midnight commander) - for files window
+
+## License
+
+MIT

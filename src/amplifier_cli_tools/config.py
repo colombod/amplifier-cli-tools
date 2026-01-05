@@ -1,0 +1,258 @@
+"""Configuration management for amplifier-cli-tools.
+
+Loads TOML configuration from ~/.amplifier-cli-tools.toml with sensible defaults.
+
+Config File Format
+------------------
+The configuration file uses TOML format:
+
+```toml
+[dev]
+repos = [
+    "https://github.com/microsoft/amplifier.git",
+    "https://github.com/microsoft/amplifier-core.git",
+    "https://github.com/microsoft/amplifier-foundation.git",
+]
+main_command = "amplifier run --mode chat"
+default_prompt = ""
+agents_template = ""  # Path to custom template, empty = use built-in
+
+[dev.windows]
+shell = ""        # Empty = shell only (no command)
+git = "lazygit"
+files = "mc"
+
+[reset]
+install_source = "git+https://github.com/microsoft/amplifier"
+preserve = ["projects"]
+```
+
+Usage
+-----
+    >>> from amplifier_cli_tools.config import load_config
+    >>> config = load_config()
+    >>> config.dev.repos
+    ['https://github.com/microsoft/amplifier.git', ...]
+"""
+
+from dataclasses import dataclass, field
+from importlib import resources
+from pathlib import Path
+import tomllib
+
+
+DEFAULT_CONFIG_PATH = Path.home() / ".amplifier-cli-tools.toml"
+
+
+@dataclass
+class WindowConfig:
+    """Configuration for a tmux window.
+
+    Attributes:
+        name: Window name (e.g., "shell", "git", "files")
+        command: Command to run in window. Empty string = shell only (no command)
+    """
+
+    name: str
+    command: str  # Empty string = shell only (no command)
+
+
+@dataclass
+class DevConfig:
+    """Configuration for the 'dev' command.
+
+    Attributes:
+        repos: List of git repository URLs to clone
+        main_command: Command to run in the main window
+        default_prompt: Default prompt to send after main_command starts
+        agents_template: Path to custom AGENTS.md template, empty = use built-in
+        windows: List of additional tmux windows to create
+    """
+
+    repos: list[str]
+    main_command: str
+    default_prompt: str
+    agents_template: str  # Path to custom template, empty = use built-in
+    windows: list[WindowConfig]
+
+
+@dataclass
+class ResetConfig:
+    """Configuration for the 'reset' command.
+
+    Attributes:
+        install_source: pip install source for amplifier
+        preserve: List of directory names to preserve during reset
+    """
+
+    install_source: str
+    preserve: list[str]
+
+
+@dataclass
+class Config:
+    """Root configuration object.
+
+    Attributes:
+        dev: Configuration for the 'dev' command
+        reset: Configuration for the 'reset' command
+    """
+
+    dev: DevConfig
+    reset: ResetConfig
+
+
+def _load_bundled_defaults() -> dict:
+    """Load default configuration from bundled template file.
+
+    Returns:
+        Parsed TOML data as dict, or empty dict if template not found.
+    """
+    try:
+        template_bytes = (
+            resources.files(__package__)
+            .joinpath("templates", "default-config.toml")
+            .read_bytes()
+        )
+        return tomllib.loads(template_bytes.decode("utf-8"))
+    except (FileNotFoundError, TypeError, tomllib.TOMLDecodeError):
+        return {}
+
+
+def _get_hardcoded_fallback() -> Config:
+    """Absolute fallback if bundled template can't be loaded.
+
+    This should rarely be needed - only if the package is corrupted.
+    """
+    return Config(
+        dev=DevConfig(
+            repos=[
+                "https://github.com/microsoft/amplifier.git",
+                "https://github.com/microsoft/amplifier-core.git",
+                "https://github.com/microsoft/amplifier-foundation.git",
+            ],
+            main_command="amplifier run --mode chat",
+            default_prompt="",
+            agents_template="",
+            windows=[
+                WindowConfig(name="shell", command=""),
+                WindowConfig(name="git", command="lazygit"),
+                WindowConfig(name="files", command="mc"),
+            ],
+        ),
+        reset=ResetConfig(
+            install_source="git+https://github.com/microsoft/amplifier",
+            preserve=["projects"],
+        ),
+    )
+
+
+def get_default_config() -> Config:
+    """Return default configuration from bundled template.
+
+    Loads defaults from templates/default-config.toml. This file is the
+    single source of truth for default values. Falls back to hardcoded
+    values only if the template can't be loaded.
+
+    Returns:
+        Config with default settings from bundled template.
+    """
+    data = _load_bundled_defaults()
+    
+    # If template couldn't be loaded, use hardcoded fallback
+    if not data:
+        return _get_hardcoded_fallback()
+    
+    # Parse the template data into Config
+    dev_data = data.get("dev", {})
+    reset_data = data.get("reset", {})
+    
+    return Config(
+        dev=DevConfig(
+            repos=dev_data.get("repos", []),
+            main_command=dev_data.get("main_command", ""),
+            default_prompt=dev_data.get("default_prompt", ""),
+            agents_template=dev_data.get("agents_template", ""),
+            windows=_parse_windows(dev_data.get("windows", {})),
+        ),
+        reset=ResetConfig(
+            install_source=reset_data.get("install_source", ""),
+            preserve=reset_data.get("preserve", []),
+        ),
+    )
+
+
+def _parse_windows(windows_dict: dict[str, str]) -> list[WindowConfig]:
+    """Convert windows dict from TOML to list of WindowConfig.
+
+    Args:
+        windows_dict: Dict mapping window name to command
+
+    Returns:
+        List of WindowConfig objects
+    """
+    return [WindowConfig(name=name, command=cmd) for name, cmd in windows_dict.items()]
+
+
+def _expand_path(path_str: str) -> str:
+    """Expand ~ in path strings.
+
+    Args:
+        path_str: Path string potentially containing ~
+
+    Returns:
+        Expanded path string, or empty string if input was empty
+    """
+    if not path_str:
+        return path_str
+    return str(Path(path_str).expanduser())
+
+
+def load_config(config_path: Path | None = None) -> Config:
+    """Load config from file, merging with defaults.
+
+    Args:
+        config_path: Optional path to config file. If None, uses
+            ~/.amplifier-cli-tools.toml
+
+    Returns:
+        Config object with file values overriding defaults.
+        If config file doesn't exist, returns defaults.
+    """
+    defaults = get_default_config()
+
+    # Determine config file path
+    path = config_path if config_path is not None else DEFAULT_CONFIG_PATH
+
+    # If file doesn't exist, return defaults
+    if not path.exists():
+        return defaults
+
+    # Load TOML file
+    with open(path, "rb") as f:
+        data = tomllib.load(f)
+
+    # Merge dev section
+    dev_data = data.get("dev", {})
+    dev_config = DevConfig(
+        repos=dev_data.get("repos", defaults.dev.repos),
+        main_command=dev_data.get("main_command", defaults.dev.main_command),
+        default_prompt=dev_data.get("default_prompt", defaults.dev.default_prompt),
+        agents_template=_expand_path(
+            dev_data.get("agents_template", defaults.dev.agents_template)
+        ),
+        windows=(
+            _parse_windows(dev_data["windows"])
+            if "windows" in dev_data
+            else defaults.dev.windows
+        ),
+    )
+
+    # Merge reset section
+    reset_data = data.get("reset", {})
+    reset_config = ResetConfig(
+        install_source=reset_data.get("install_source", defaults.reset.install_source),
+        preserve=reset_data.get("preserve", defaults.reset.preserve),
+    )
+
+    return Config(dev=dev_config, reset=reset_config)
