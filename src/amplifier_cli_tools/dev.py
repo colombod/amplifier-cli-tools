@@ -284,6 +284,8 @@ def run_dev(
     # Handle tmux session
     if tmux.session_exists(session_name):
         print(f"Attaching to existing session: {session_name}")
+        # Select the main window before attaching
+        tmux.select_window(session_name, "amplifier")
         # Note: attach_session uses execvp, so this call doesn't return
         tmux.attach_session(session_name)
     else:
@@ -291,7 +293,7 @@ def run_dev(
         tmux.create_session(
             name=session_name,
             workdir=workdir,
-            main_window_name="main",
+            main_window_name="amplifier",
             main_command=config.main_command,
             prompt=final_prompt,
             windows=config.windows,

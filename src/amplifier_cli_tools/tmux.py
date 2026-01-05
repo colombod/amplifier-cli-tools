@@ -96,6 +96,19 @@ def create_session(
     for window_config in windows:
         _create_window(name, window_config, workdir, rcfile_dir)
 
+    # Select the main window so we attach to it
+    run(f"tmux select-window -t {quoted_name}:{quoted_main_window}")
+
+
+def select_window(session: str, window: str) -> None:
+    """Select a window in a tmux session.
+
+    Args:
+        session: Session name.
+        window: Window name to select.
+    """
+    run(f"tmux select-window -t {shlex.quote(session)}:{shlex.quote(window)}", check=False)
+
 
 def attach_session(name: str) -> None:
     """Attach to tmux session.
