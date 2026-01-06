@@ -85,13 +85,13 @@ def create_session(
     quoted_name = shlex.quote(name)
     quoted_workdir = shlex.quote(str(workdir))
     quoted_main_window = shlex.quote(main_window_name)
-    quoted_rcfile = shlex.quote(str(main_rcfile))
 
     # Use 'exec bash' to replace the shell process, preventing extra shell layers
-    # that could receive terminal capability query responses before our flush logic runs
+    # that could receive terminal capability query responses before our flush logic runs.
+    # Use double quotes outside, single quotes for path inside (matching bash script pattern)
     run(
         f"tmux new-session -d -s {quoted_name} -n {quoted_main_window} "
-        f"-c {quoted_workdir} 'exec bash --rcfile {quoted_rcfile}'"
+        f'''-c {quoted_workdir} "exec bash --rcfile '{main_rcfile}'"'''
     )
 
     # Create additional windows
@@ -159,8 +159,9 @@ source ~/.bashrc 2>/dev/null
 cd {shlex.quote(str(workdir))}
 # Wait for terminal capability queries to settle, then flush any pending input
 # This prevents WezTerm/tmux escape sequences from appearing in the command's input
-sleep 0.3
-read -t 0.1 -n 10000 discard 2>/dev/null || true
+# WezTerm sends DA1, DA2, XTVERSION queries - need enough time for all responses
+sleep 0.5
+read -t 0.2 -n 10000 discard 2>/dev/null || true
 {main_command} {escaped_prompt}
 """
     rcfile.write_text(rcfile_content)
@@ -212,14 +213,15 @@ def _create_window(
         quoted_rcfile = shlex.quote(str(shell_rcfile))
 
         # Create window with first pane (use exec to replace shell process)
+        # Use double quotes outside, single quotes for path inside (matching bash script pattern)
         run(
             f"tmux new-window -t {quoted_session} -n {quoted_window} "
-            f"-c {quoted_workdir} 'exec bash --rcfile {quoted_rcfile}'"
+            f'''-c {quoted_workdir} "exec bash --rcfile '{shell_rcfile}'"'''
         )
         # Split horizontally for second pane
         run(
             f"tmux split-window -h -t {quoted_session}:{quoted_window} "
-            f"-c {quoted_workdir} 'exec bash --rcfile {quoted_rcfile}'"
+            f'''-c {quoted_workdir} "exec bash --rcfile '{shell_rcfile}'"'''
         )
         return
 
