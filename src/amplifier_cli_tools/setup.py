@@ -97,6 +97,56 @@ def ensure_tmux_conf() -> bool:
         return False
 
 
+def ensure_wezterm_conf(interactive: bool = True) -> bool:
+    """Create WezTerm config if WezTerm is installed but no config exists.
+    
+    Args:
+        interactive: If True, prompt user before creating.
+    
+    Returns:
+        True if config exists, was created, or WezTerm not installed.
+    """
+    # Check if WezTerm is installed
+    if not command_exists("wezterm"):
+        # Not installed - skip silently
+        return True
+    
+    # WezTerm config locations (check both)
+    wezterm_lua = Path.home() / ".wezterm.lua"
+    wezterm_xdg = Path.home() / ".config" / "wezterm" / "wezterm.lua"
+    
+    if wezterm_lua.exists() or wezterm_xdg.exists():
+        config_path = wezterm_lua if wezterm_lua.exists() else wezterm_xdg
+        print(f"WezTerm config exists: {config_path}")
+        return True
+    
+    print("WezTerm detected but no config found.")
+    
+    if interactive:
+        response = input("Create WezTerm config? (Catppuccin theme, WSL support, tmux-friendly keys) [Y/n] ").strip().lower()
+        if response not in ("", "y", "yes"):
+            print("Skipping WezTerm config")
+            return True
+    
+    try:
+        template_bytes = (
+            resources.files(__package__)
+            .joinpath("templates", "wezterm.lua")
+            .read_bytes()
+        )
+        wezterm_lua.write_bytes(template_bytes)
+        print(f"Created {wezterm_lua}")
+        print("  - Catppuccin Mocha color scheme")
+        print("  - JetBrains Mono font (with fallbacks)")
+        print("  - WSL:Ubuntu as default on Windows")
+        print("  - macOS Option key as Meta (for Alt+arrow in tmux)")
+        print("  - tmux-friendly keybindings")
+        return True
+    except Exception as e:
+        print(f"Failed to create WezTerm config: {e}")
+        return False
+
+
 def ensure_local_bin_in_path() -> None:
     """Check if ~/.local/bin is in PATH and warn if not."""
     local_bin = Path.home() / ".local" / "bin"
@@ -149,6 +199,11 @@ def run_setup(interactive: bool = True, skip_tools: bool = False, skip_tmux: boo
         ensure_tmux_conf()
         print()
     
+    # Setup WezTerm config (if WezTerm is installed)
+    print("Checking WezTerm configuration...")
+    ensure_wezterm_conf(interactive)
+    print()
+    
     # PATH check
     ensure_local_bin_in_path()
     
@@ -180,6 +235,7 @@ __all__ = [
     "run_setup",
     "check_and_install_tools",
     "ensure_tmux_conf",
+    "ensure_wezterm_conf",
     "quick_check",
     "REQUIRED_TOOLS",
     "OPTIONAL_TOOLS",
