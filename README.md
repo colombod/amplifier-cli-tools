@@ -54,7 +54,8 @@ amplifier-dev --destroy ~/work/my-feature
 - `-p, --prompt TEXT` - Override default prompt
 - `-e, --extra TEXT` - Append to prompt
 - `-c, --config FILE` - Use specific config file
-- `--no-tmux` - Setup workspace only, don't launch tmux
+- `--tmux` - Use tmux (override config setting)
+- `--no-tmux` - Run amplifier directly without tmux (override config setting)
 
 **What it creates:**
 - Git repository with Amplifier repos as submodules
@@ -89,12 +90,39 @@ amplifier-reset -y
 - `--no-install` - Uninstall only, don't reinstall
 - `--no-launch` - Don't launch amplifier after install
 
+### amplifier-config
+
+View and modify configuration settings.
+
+```bash
+# Show current configuration
+amplifier-config show
+
+# Toggle tmux mode (quick shortcuts)
+amplifier-config tmux-off   # Run amplifier directly without tmux
+amplifier-config tmux-on    # Use tmux (default)
+
+# Get/set specific settings
+amplifier-config get dev.use_tmux
+amplifier-config set dev.use_tmux false
+```
+
+**Subcommands:**
+- `show` - Display current configuration (default)
+- `tmux-on` - Enable tmux mode
+- `tmux-off` - Disable tmux mode (run amplifier directly)
+- `get KEY` - Get a setting value (e.g., `dev.use_tmux`)
+- `set KEY VALUE` - Set a setting value
+
 ## Configuration
 
 Create `~/.amplifier-cli-tools.toml` to customize behavior:
 
 ```toml
 [dev]
+# Use tmux for multi-window workspace (false = run amplifier directly)
+use_tmux = true
+
 # Repositories to clone as submodules
 repos = [
     "https://github.com/microsoft/amplifier.git",

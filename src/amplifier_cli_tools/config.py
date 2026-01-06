@@ -62,6 +62,7 @@ class DevConfig:
     """Configuration for the 'dev' command.
 
     Attributes:
+        use_tmux: Whether to use tmux (False = run amplifier directly)
         repos: List of git repository URLs to clone
         main_command: Command to run in the main window
         default_prompt: Default prompt to send after main_command starts
@@ -69,6 +70,7 @@ class DevConfig:
         windows: List of additional tmux windows to create
     """
 
+    use_tmux: bool
     repos: list[str]
     main_command: str
     default_prompt: str
@@ -126,6 +128,7 @@ def _get_hardcoded_fallback() -> Config:
     """
     return Config(
         dev=DevConfig(
+            use_tmux=True,
             repos=[
                 "https://github.com/microsoft/amplifier.git",
                 "https://github.com/microsoft/amplifier-core.git",
@@ -169,6 +172,7 @@ def get_default_config() -> Config:
     
     return Config(
         dev=DevConfig(
+            use_tmux=dev_data.get("use_tmux", True),
             repos=dev_data.get("repos", []),
             main_command=dev_data.get("main_command", ""),
             default_prompt=dev_data.get("default_prompt", ""),
@@ -235,6 +239,7 @@ def load_config(config_path: Path | None = None) -> Config:
     # Merge dev section
     dev_data = data.get("dev", {})
     dev_config = DevConfig(
+        use_tmux=dev_data.get("use_tmux", defaults.dev.use_tmux),
         repos=dev_data.get("repos", defaults.dev.repos),
         main_command=dev_data.get("main_command", defaults.dev.main_command),
         default_prompt=dev_data.get("default_prompt", defaults.dev.default_prompt),

@@ -17,8 +17,11 @@ from importlib import resources
 from pathlib import Path
 import shutil
 
+import os
+import shlex
+
 from .config import DevConfig
-from .shell import ensure_commands, ShellError
+from .shell import ensure_commands, run, ShellError
 from . import git
 from . import tmux
 
@@ -223,6 +226,50 @@ def destroy_workspace(workdir: Path, session_name: str) -> bool:
         return True
 
 
+def _run_amplifier_directly(
+    workdir: Path,
+    config: DevConfig,
+    prompt: str | None,
+    extra: str | None,
+) -> bool:
+    """Run amplifier directly without tmux.
+
+    Changes to workdir and executes the main command, optionally with a prompt.
+
+    Args:
+        workdir: Workspace directory.
+        config: Dev configuration.
+        prompt: Override prompt.
+        extra: Extra text to append to prompt.
+
+    Returns:
+        True (doesn't return on success due to execvp).
+    """
+    final_prompt = compute_final_prompt(config, prompt, extra)
+
+    # Change to workdir
+    os.chdir(workdir)
+    print(f"Changed to: {workdir}")
+
+    # Build command
+    if not config.main_command:
+        print("No main_command configured. Shell ready.")
+        return True
+
+    # Parse command and add prompt if provided
+    cmd_parts = shlex.split(config.main_command)
+    if final_prompt:
+        cmd_parts.extend(["--prompt", final_prompt])
+
+    print(f"Running: {' '.join(cmd_parts)}")
+
+    # Replace current process with amplifier
+    os.execvp(cmd_parts[0], cmd_parts)
+
+    # execvp doesn't return on success
+    return True
+
+
 def run_dev(
     config: DevConfig,
     workdir: Path,
@@ -272,10 +319,10 @@ def run_dev(
     if not setup_workspace(workdir, config):
         return False
 
-    # If no_tmux, we're done
+    # If not using tmux, run amplifier directly
     if no_tmux:
         print(f"Workspace ready: {workdir}")
-        return True
+        return _run_amplifier_directly(workdir, config, prompt, extra)
 
     # Compute session name and prompt
     session_name = get_session_name(workdir)

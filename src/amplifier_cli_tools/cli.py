@@ -11,6 +11,7 @@ Entry Points
 - main_dev(): amplifier-dev command
 - main_reset(): amplifier-reset command
 - main_setup(): amplifier-setup command
+- main_config(): amplifier-config command
 """
 
 import argparse
@@ -82,10 +83,20 @@ def main_dev() -> int:
         type=Path,
         help="Use specific config file",
     )
-    parser.add_argument(
-        "--no-tmux",
+    # Tmux mode options (mutually exclusive)
+    tmux_group = parser.add_mutually_exclusive_group()
+    tmux_group.add_argument(
+        "--tmux",
         action="store_true",
-        help="Setup workspace only, don't launch tmux",
+        dest="use_tmux",
+        default=None,
+        help="Use tmux (override config)",
+    )
+    tmux_group.add_argument(
+        "--no-tmux",
+        action="store_false",
+        dest="use_tmux",
+        help="Run amplifier directly without tmux (override config)",
     )
 
     args = parser.parse_args()
@@ -93,6 +104,9 @@ def main_dev() -> int:
     try:
         config = load_config(args.config)
         workdir = args.workdir.resolve()
+
+        # Determine tmux mode: CLI flag overrides config
+        use_tmux = args.use_tmux if args.use_tmux is not None else config.dev.use_tmux
 
         if args.destroy:
             # Derive session name from workdir
@@ -119,7 +133,7 @@ def main_dev() -> int:
             workdir=workdir,
             prompt=args.prompt,
             extra=args.extra,
-            no_tmux=args.no_tmux,
+            no_tmux=not use_tmux,
         )
         return 0 if success else 1
 
@@ -248,6 +262,108 @@ def main_setup() -> int:
     except KeyboardInterrupt:
         print("\nAborted.")
         return 130
+    except Exception as e:
+        print(f"Error: {e}", file=sys.stderr)
+        return 1
+
+
+def main_config() -> int:
+    """Entry point for amplifier-config command.
+
+    View and modify amplifier-cli-tools configuration.
+
+    Returns:
+        Exit code (0 success, 1 error)
+    """
+    from . import config_manager
+
+    parser = argparse.ArgumentParser(
+        prog="amplifier-config",
+        description="View and modify amplifier-cli-tools configuration.",
+    )
+    subparsers = parser.add_subparsers(dest="command", help="Commands")
+
+    # Show command
+    subparsers.add_parser("show", help="Show current configuration")
+
+    # Set command
+    set_parser = subparsers.add_parser("set", help="Set a configuration value")
+    set_parser.add_argument("key", help="Setting key (e.g., dev.use_tmux)")
+    set_parser.add_argument("value", help="Value to set")
+
+    # Get command
+    get_parser = subparsers.add_parser("get", help="Get a configuration value")
+    get_parser.add_argument("key", help="Setting key (e.g., dev.use_tmux)")
+
+    # Convenience toggles
+    subparsers.add_parser("tmux-on", help="Enable tmux mode (shortcut for 'set dev.use_tmux true')")
+    subparsers.add_parser("tmux-off", help="Disable tmux mode (shortcut for 'set dev.use_tmux false')")
+
+    args = parser.parse_args()
+
+    try:
+        if args.command is None or args.command == "show":
+            print(config_manager.show_config())
+            return 0
+
+        elif args.command == "get":
+            parts = args.key.split(".", 1)
+            if len(parts) != 2:
+                print("Error: Key must be in format 'section.key' (e.g., dev.use_tmux)")
+                return 1
+            section, key = parts
+            value = config_manager.get_setting(section, key)
+            if value is None:
+                print(f"{args.key}: (not set)")
+            else:
+                print(f"{args.key} = {value}")
+            return 0
+
+        elif args.command == "set":
+            parts = args.key.split(".", 1)
+            if len(parts) != 2:
+                print("Error: Key must be in format 'section.key' (e.g., dev.use_tmux)")
+                return 1
+            section, key = parts
+
+            # Parse value
+            value_str = args.value.lower()
+            if value_str in ("true", "yes", "on", "1"):
+                value = True
+            elif value_str in ("false", "no", "off", "0"):
+                value = False
+            else:
+                # Try as number, else string
+                try:
+                    value = int(args.value)
+                except ValueError:
+                    try:
+                        value = float(args.value)
+                    except ValueError:
+                        value = args.value
+
+            config_manager.set_setting(section, key, value)
+            print(f"Set {args.key} = {value}")
+            print(f"Config saved to: {config_manager.get_config_path()}")
+            return 0
+
+        elif args.command == "tmux-on":
+            config_manager.set_setting("dev", "use_tmux", True)
+            print("Enabled tmux mode (dev.use_tmux = true)")
+            print(f"Config saved to: {config_manager.get_config_path()}")
+            return 0
+
+        elif args.command == "tmux-off":
+            config_manager.set_setting("dev", "use_tmux", False)
+            print("Disabled tmux mode (dev.use_tmux = false)")
+            print("amplifier-dev will now run amplifier directly without tmux")
+            print(f"Config saved to: {config_manager.get_config_path()}")
+            return 0
+
+        else:
+            parser.print_help()
+            return 1
+
     except Exception as e:
         print(f"Error: {e}", file=sys.stderr)
         return 1

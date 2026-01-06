@@ -2,6 +2,9 @@
 # Copy to ~/.amplifier-cli-tools.toml to customize
 
 [dev]
+# Use tmux for multi-window workspace (false = run amplifier directly)
+use_tmux = true
+
 # Repositories to clone as submodules
 repos = [
     "https://github.com/microsoft/amplifier.git",
