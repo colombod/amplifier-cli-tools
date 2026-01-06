@@ -2,6 +2,8 @@
 
 CLI tools for Amplifier development workflows.
 
+**New to remote/mobile development?** See [Remote & Mobile Development Guide](docs/REMOTE_MOBILE_DEV.md) for setting up Tailscale + Mosh + tmux for seamless multi-device workflows.
+
 ## Installation
 
 ```bash
@@ -18,7 +20,7 @@ amplifier-setup
 
 This will:
 - Check for and install required tools (git, tmux)
-- Check for and install optional tools (lazygit, mc)
+- Check for and install optional tools (mosh, lazygit, mc)
 - Create a minimal `~/.tmux.conf` if you don't have one (with mouse support, keybindings, etc.)
 
 **Options:**
@@ -132,7 +134,8 @@ preserve = ["projects"]
 
 Run `amplifier-setup` to automatically install missing tools.
 
-**Optional tools (windows show instructions if missing):**
+**Optional tools (installed by `amplifier-setup`):**
+- mosh - for resilient remote connections (recommended for mobile/remote dev)
 - lazygit - for git window
 - mc (midnight commander) - for files window
 

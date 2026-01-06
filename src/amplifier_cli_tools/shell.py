@@ -149,6 +149,11 @@ _TOOL_PACKAGES: dict[str, dict[str, str]] = {
         "apt": "git",
         "dnf": "git",
     },
+    "mosh": {
+        "brew": "mosh",
+        "apt": "mosh",
+        "dnf": "mosh",
+    },
 }
 
 
