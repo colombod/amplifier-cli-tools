@@ -16,10 +16,11 @@ import argparse
 import sys
 from pathlib import Path
 
-from .config import load_config
+from .config import load_config, save_reset_preserve
 from . import dev
 from . import reset
 from . import tmux
+from .interactive import ChecklistItem, run_checklist
 
 
 def _confirm(message: str) -> bool:
@@ -57,7 +58,7 @@ def _cmd_run(args: argparse.Namespace) -> int:
                 print("Session killed.")
             else:
                 print(f"No session '{session_name}' to kill.")
-            
+
             # If --fresh, continue to create new session; otherwise exit
             if not args.fresh:
                 return 0
@@ -223,7 +224,8 @@ def _main_dev_subcommands() -> int:
         help="First-time setup: install dependencies and create configs",
     )
     setup_parser.add_argument(
-        "-y", "--yes",
+        "-y",
+        "--yes",
         action="store_true",
         help="Non-interactive mode (auto-accept all prompts)",
     )
@@ -243,11 +245,15 @@ def _main_dev_subcommands() -> int:
         "config",
         help="View and modify configuration",
     )
-    config_subparsers = config_parser.add_subparsers(dest="config_command", help="Config commands")
+    config_subparsers = config_parser.add_subparsers(
+        dest="config_command", help="Config commands"
+    )
 
     config_subparsers.add_parser("show", help="Show current configuration")
     config_subparsers.add_parser("tmux-on", help="Enable tmux mode")
-    config_subparsers.add_parser("tmux-off", help="Disable tmux mode (run amplifier directly)")
+    config_subparsers.add_parser(
+        "tmux-off", help="Disable tmux mode (run amplifier directly)"
+    )
 
     get_parser = config_subparsers.add_parser("get", help="Get a configuration value")
     get_parser.add_argument("key", help="Setting key (e.g., dev.use_tmux)")
@@ -296,32 +302,38 @@ Examples:
         help="Directory for workspace (required for create/destroy)",
     )
     parser.add_argument(
-        "-k", "--kill",
+        "-k",
+        "--kill",
         action="store_true",
         help="Kill tmux session only (preserve workspace files)",
     )
     parser.add_argument(
-        "-f", "--fresh",
+        "-f",
+        "--fresh",
         action="store_true",
         help="Kill session and start fresh (implies --kill, then creates new session)",
     )
     parser.add_argument(
-        "-d", "--destroy",
+        "-d",
+        "--destroy",
         action="store_true",
         help="Destroy session and delete workspace (with confirmation)",
     )
     parser.add_argument(
-        "-p", "--prompt",
+        "-p",
+        "--prompt",
         metavar="TEXT",
         help="Override default prompt",
     )
     parser.add_argument(
-        "-e", "--extra",
+        "-e",
+        "--extra",
         metavar="TEXT",
         help="Append to prompt",
     )
     parser.add_argument(
-        "-c", "--config",
+        "-c",
+        "--config",
         metavar="FILE",
         type=Path,
         help="Use specific config file",
@@ -352,6 +364,53 @@ Examples:
     return _cmd_run(args)
 
 
+def _parse_category_list(value: str) -> set[str]:
+    """Parse a comma-separated list of category names.
+
+    Args:
+        value: Comma-separated string like "projects,settings,keys"
+
+    Returns:
+        Set of valid category names
+
+    Raises:
+        argparse.ArgumentTypeError: If any category name is invalid
+    """
+    categories = {c.strip() for c in value.split(",") if c.strip()}
+    valid = set(reset.RESET_CATEGORIES.keys())
+    invalid = categories - valid
+
+    if invalid:
+        raise argparse.ArgumentTypeError(
+            f"Invalid categories: {', '.join(sorted(invalid))}. "
+            f"Valid categories: {', '.join(sorted(valid))}"
+        )
+
+    return categories
+
+
+def _run_interactive_reset(config) -> set[str] | None:
+    """Run the interactive checklist for reset category selection.
+
+    Args:
+        config: Loaded configuration
+
+    Returns:
+        Set of category names to preserve, or None if cancelled
+    """
+    # Build checklist items from categories
+    last_preserve = set(config.reset.last_preserve)
+    items = []
+
+    for category in reset.CATEGORY_ORDER:
+        description = reset.CATEGORY_DESCRIPTIONS.get(category, "")
+        selected = category in last_preserve
+        items.append(ChecklistItem(key=category, description=description, selected=selected))
+
+    # Run interactive selection
+    return run_checklist(items, title="Amplifier Reset")
+
+
 def main_reset() -> int:
     """Entry point for amplifier-reset command.
 
@@ -363,16 +422,58 @@ def main_reset() -> int:
     parser = argparse.ArgumentParser(
         prog="amplifier-reset",
         description="Reset Amplifier installation.",
+        epilog=f"""
+Categories: {', '.join(reset.CATEGORY_ORDER)}
+
+Examples:
+  amplifier-reset                      Interactive mode (default)
+  amplifier-reset --cache-only         Clear only cache (safest)
+  amplifier-reset --preserve projects,settings,keys -y
+                                       Scripted: preserve specific categories
+  amplifier-reset --remove cache,registry -y
+                                       Scripted: remove specific categories
+  amplifier-reset --full -y            Remove everything (nuclear option)
+  amplifier-reset --dry-run            Preview what would be removed
+""",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+    )
+
+    # Category selection (mutually exclusive group)
+    category_group = parser.add_mutually_exclusive_group()
+    category_group.add_argument(
+        "--preserve",
+        metavar="LIST",
+        type=_parse_category_list,
+        help="Comma-separated categories to preserve (e.g., projects,settings,keys)",
+    )
+    category_group.add_argument(
+        "--remove",
+        metavar="LIST",
+        type=_parse_category_list,
+        help="Comma-separated categories to remove (e.g., cache,registry)",
+    )
+    category_group.add_argument(
+        "--cache-only",
+        action="store_true",
+        help="Only clear cache (safest option, shortcut for --remove cache)",
+    )
+    category_group.add_argument(
+        "--full",
+        action="store_true",
+        help="Remove everything including projects (nuclear option)",
+    )
+
+    # Other options
+    parser.add_argument(
+        "-y",
+        "--yes",
+        action="store_true",
+        help="Skip interactive prompt (required with --preserve/--remove/--cache-only/--full)",
     )
     parser.add_argument(
-        "-a", "--all",
+        "--dry-run",
         action="store_true",
-        help="Remove entire ~/.amplifier including preserved dirs",
-    )
-    parser.add_argument(
-        "-y", "--yes",
-        action="store_true",
-        help="Skip confirmation prompt",
+        help="Preview what would be removed without making changes",
     )
     parser.add_argument(
         "--no-install",
@@ -390,13 +491,46 @@ def main_reset() -> int:
     try:
         config = load_config()
 
-        # Confirmation unless --yes
-        if not args.yes:
-            if args.all:
-                message = "This will remove ~/.amplifier entirely (including preserved directories)."
+        # Determine preserve set based on arguments
+        preserve: set[str] | None = None
+
+        if args.full:
+            # Full reset - preserve nothing
+            preserve = set()
+        elif args.cache_only:
+            # Only remove cache - preserve everything else
+            preserve = set(reset.RESET_CATEGORIES.keys()) - {"cache"}
+        elif args.remove is not None:
+            # Remove specified categories - preserve everything else
+            preserve = set(reset.RESET_CATEGORIES.keys()) - args.remove
+        elif args.preserve is not None:
+            # Preserve specified categories
+            preserve = args.preserve
+        elif args.yes:
+            # Non-interactive with -y but no category flags: use last_preserve
+            preserve = set(config.reset.last_preserve)
+        else:
+            # Interactive mode
+            preserve = _run_interactive_reset(config)
+            if preserve is None:
+                print("Aborted.")
+                return 0
+
+            # Save selections for next time
+            save_reset_preserve(sorted(preserve))
+
+        # For scripted mode without -y, require confirmation
+        if not args.yes and not args.dry_run:
+            # Show what will happen
+            preserve_names = sorted(preserve) if preserve else []
+            remove_names = sorted(set(reset.RESET_CATEGORIES.keys()) - preserve)
+
+            if not preserve:
+                message = "This will remove ~/.amplifier entirely (ALL contents)."
             else:
-                preserved = ", ".join(config.reset.preserve) if config.reset.preserve else "none"
-                message = f"This will reset ~/.amplifier (preserving: {preserved})."
+                message = f"This will reset ~/.amplifier.\n"
+                message += f"  Preserving: {', '.join(preserve_names)}\n"
+                message += f"  Removing: {', '.join(remove_names)}"
 
             if not args.no_install:
                 message += "\nAmplifier will be reinstalled afterward."
@@ -408,10 +542,11 @@ def main_reset() -> int:
         # Run reset workflow
         success = reset.run_reset(
             config=config.reset,
-            remove_all=args.all,
-            skip_confirm=True,  # We already confirmed above
+            preserve=preserve,
+            skip_confirm=True,  # We already confirmed above or user passed -y
             no_install=args.no_install,
             no_launch=args.no_launch,
+            dry_run=args.dry_run,
         )
         return 0 if success else 1
 

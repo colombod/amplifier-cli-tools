@@ -31,5 +31,6 @@ files = "mc"         # midnight commander for file browsing
 # Source for reinstalling amplifier
 install_source = "git+https://github.com/microsoft/amplifier"
 
-# Directories to preserve in ~/.amplifier during reset
-preserve = ["projects"]
+# Last-used preserve selections (updated automatically after interactive use)
+# Categories: projects, settings, keys, cache, registry
+last_preserve = ["projects", "settings", "keys"]

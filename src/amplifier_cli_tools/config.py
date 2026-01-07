@@ -24,7 +24,7 @@ files = "mc"
 
 [reset]
 install_source = "git+https://github.com/microsoft/amplifier"
-preserve = ["projects"]
+last_preserve = ["projects", "settings", "keys"]  # Last-used preserve selections
 ```
 
 Usage
@@ -35,7 +35,7 @@ Usage
     ['https://github.com/microsoft/amplifier.git', ...]
 """
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from importlib import resources
 from pathlib import Path
 import tomllib
@@ -84,11 +84,11 @@ class ResetConfig:
 
     Attributes:
         install_source: pip install source for amplifier
-        preserve: List of directory names to preserve during reset
+        last_preserve: Last-used preserve selections (category names)
     """
 
     install_source: str
-    preserve: list[str]
+    last_preserve: list[str]
 
 
 @dataclass
@@ -145,7 +145,7 @@ def _get_hardcoded_fallback() -> Config:
         ),
         reset=ResetConfig(
             install_source="git+https://github.com/microsoft/amplifier",
-            preserve=["projects"],
+            last_preserve=["projects", "settings", "keys"],
         ),
     )
 
@@ -161,15 +161,15 @@ def get_default_config() -> Config:
         Config with default settings from bundled template.
     """
     data = _load_bundled_defaults()
-    
+
     # If template couldn't be loaded, use hardcoded fallback
     if not data:
         return _get_hardcoded_fallback()
-    
+
     # Parse the template data into Config
     dev_data = data.get("dev", {})
     reset_data = data.get("reset", {})
-    
+
     return Config(
         dev=DevConfig(
             use_tmux=dev_data.get("use_tmux", True),
@@ -181,7 +181,9 @@ def get_default_config() -> Config:
         ),
         reset=ResetConfig(
             install_source=reset_data.get("install_source", ""),
-            preserve=reset_data.get("preserve", []),
+            last_preserve=reset_data.get(
+                "last_preserve", ["projects", "settings", "keys"]
+            ),
         ),
     )
 
@@ -257,7 +259,103 @@ def load_config(config_path: Path | None = None) -> Config:
     reset_data = data.get("reset", {})
     reset_config = ResetConfig(
         install_source=reset_data.get("install_source", defaults.reset.install_source),
-        preserve=reset_data.get("preserve", defaults.reset.preserve),
+        last_preserve=reset_data.get("last_preserve", defaults.reset.last_preserve),
     )
 
     return Config(dev=dev_config, reset=reset_config)
+
+
+def save_reset_preserve(preserve: list[str], config_path: Path | None = None) -> None:
+    """Save the last-used preserve selections to config file.
+
+    Updates only the reset.last_preserve field, preserving all other settings.
+
+    Args:
+        preserve: List of category names that were preserved
+        config_path: Optional path to config file. If None, uses default.
+    """
+    path = config_path if config_path is not None else DEFAULT_CONFIG_PATH
+
+    # Load existing config or start fresh
+    if path.exists():
+        with open(path, "rb") as f:
+            data = tomllib.load(f)
+    else:
+        data = {}
+
+    # Update reset.last_preserve
+    if "reset" not in data:
+        data["reset"] = {}
+    data["reset"]["last_preserve"] = preserve
+
+    # Write back as TOML
+    _write_toml(path, data)
+
+
+def _write_toml(path: Path, data: dict) -> None:
+    """Write a dict to a TOML file.
+
+    Note: This is a simple implementation that handles our specific config
+    structure. For complex TOML, consider using tomli-w.
+
+    Args:
+        path: Path to write to
+        data: Dict to serialize
+    """
+    lines = []
+
+    for section, values in data.items():
+        if isinstance(values, dict):
+            # Check if this section has nested dicts (like dev.windows)
+            simple_values = {}
+            nested_sections = {}
+
+            for key, value in values.items():
+                if isinstance(value, dict):
+                    nested_sections[key] = value
+                else:
+                    simple_values[key] = value
+
+            # Write section header and simple values
+            lines.append(f"[{section}]")
+            for key, value in simple_values.items():
+                lines.append(f"{key} = {_toml_value(value)}")
+            lines.append("")
+
+            # Write nested sections
+            for nested_key, nested_values in nested_sections.items():
+                lines.append(f"[{section}.{nested_key}]")
+                for key, value in nested_values.items():
+                    lines.append(f"{key} = {_toml_value(value)}")
+                lines.append("")
+        else:
+            # Top-level value (unusual in our config, but handle it)
+            lines.append(f"{section} = {_toml_value(values)}")
+
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with open(path, "w") as f:
+        f.write("\n".join(lines))
+
+
+def _toml_value(value) -> str:
+    """Convert a Python value to TOML string representation.
+
+    Args:
+        value: Python value to convert
+
+    Returns:
+        TOML string representation
+    """
+    if isinstance(value, bool):
+        return "true" if value else "false"
+    elif isinstance(value, str):
+        # Escape quotes and backslashes
+        escaped = value.replace("\\", "\\\\").replace('"', '\\"')
+        return f'"{escaped}"'
+    elif isinstance(value, (int, float)):
+        return str(value)
+    elif isinstance(value, list):
+        items = [_toml_value(item) for item in value]
+        return "[" + ", ".join(items) + "]"
+    else:
+        return f'"{value}"'
