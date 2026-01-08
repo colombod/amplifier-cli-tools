@@ -117,7 +117,7 @@ def _get_hardcoded_fallback() -> Config:
                 "https://github.com/microsoft/amplifier-core.git",
                 "https://github.com/microsoft/amplifier-foundation.git",
             ],
-            bundle="foundation:bundles/amplifier-dev",
+            bundle="git+https://github.com/microsoft/amplifier-foundation@main#subdirectory=bundles/amplifier-dev.yaml",
             main_command="amplifier run --mode chat",
             default_prompt="",
             agents_template="",
@@ -153,7 +153,7 @@ def get_default_config() -> Config:
         dev=DevConfig(
             use_tmux=dev_data.get("use_tmux", True),
             repos=dev_data.get("repos", []),
-            bundle=dev_data.get("bundle", "foundation:bundles/amplifier-dev"),
+            bundle=dev_data.get("bundle", "git+https://github.com/microsoft/amplifier-foundation@main#subdirectory=bundles/amplifier-dev.yaml"),
             main_command=dev_data.get("main_command", ""),
             default_prompt=dev_data.get("default_prompt", ""),
             agents_template=dev_data.get("agents_template", ""),
