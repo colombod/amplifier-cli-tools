@@ -7,7 +7,7 @@ to make the tool work out-of-the-box on fresh WSL/Ubuntu or macOS systems.
 from importlib import resources
 from pathlib import Path
 
-from .shell import command_exists, try_install_tool, run, ShellError
+from .shell import command_exists, try_install_tool
 
 
 # Tools required for full functionality
