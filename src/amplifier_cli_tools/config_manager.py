@@ -157,12 +157,6 @@ def show_config() -> str:
     lines.append(f"  main_command = \"{config.dev.main_command}\"")
     lines.append(f"  repos = [{len(config.dev.repos)} repos]")
     lines.append(f"  windows = [{len(config.dev.windows)} windows]")
-    lines.append("")
-    
-    # Reset settings
-    lines.append("[reset]")
-    lines.append(f"  install_source = \"{config.reset.install_source}\"")
-    lines.append(f"  preserve = {config.reset.preserve}")
     
     return "\n".join(lines)
 
