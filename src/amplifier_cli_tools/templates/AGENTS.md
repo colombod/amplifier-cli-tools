@@ -1,63 +1,90 @@
-# Development Workspace
+# Amplifier Development Workspace
 
-This is a **temporary workspace** for multi-repo development work.
+@amplifier:docs/MODULES.md
+@amplifier:docs/REPOSITORY_RULES.md
 
-## Workspace Pattern
+---
 
-This workspace was created for a **specific task** and can be destroyed when complete:
-1. Spin up fresh workspace via `amplifier-dev ~/work/my-task`
-2. Work on the task, committing/pushing changes to submodule repos
-3. Destroy workspace when done via `amplifier-dev --destroy ~/work/my-task`
+## This Workspace Uses Submodules
 
-Each task gets a clean slate. Submodule changes persist (they're pushed to their repos), but this workspace directory is disposable.
-
-## Repository Structure
-
-This git repo exists locally only (not pushed anywhere) and contains submodules:
+Your code lives HERE as git submodules, NOT in `~/.amplifier/cache/`:
 
 ```
 ./
-├── AGENTS.md           # This file - workspace context
-├── amplifier/          # submodule
-├── amplifier-core/     # submodule
-└── amplifier-foundation/  # submodule
+├── AGENTS.md              # This file
+├── SCRATCH.md             # Working memory (create as needed)
+├── amplifier/             # Submodule - EDIT HERE
+├── amplifier-core/        # Submodule - EDIT HERE
+└── amplifier-foundation/  # Submodule - EDIT HERE
 ```
 
-## Working with Submodules
+## Clone Repos Eagerly
 
-**This workspace repo:**
-- Local only, never pushed anywhere
-- Use however you see fit (commits, branches, whatever helps)
-- Will be destroyed at task end
-
-**Submodule repos:**
-- These ARE real repos pushed to GitHub
-- Commit and push your work to these
-- Changes here persist beyond the session
-
-### Making Changes
+When you need to explore or modify ANY Amplifier ecosystem code:
 
 ```bash
-# Work in a submodule
-cd amplifier
-git checkout -b my-feature
-# ... make changes ...
-git add . && git commit -m "feat: my changes"
-git push origin my-feature
-
-# Update workspace to track new commit (optional)
-cd ..
-git add amplifier
-git commit -m "Update amplifier submodule"
+# Add as submodule immediately - consult MODULES.md for URLs
+git submodule add https://github.com/microsoft/amplifier-module-xyz.git
 ```
 
-### Adding New Repos
+**Don't** read from `~/.amplifier/cache/` - that's the installed CLI's runtime code.
+**Do** clone repos here where changes are git-tracked.
 
-When you need content from another repo, add it as a submodule:
-```bash
-git submodule add https://github.com/org/another-repo.git
+## Workspace Lifecycle
+
+1. **Create**: `amplifier-dev ~/work/feature-name`
+2. **Work**: Changes go in submodules, commit often
+3. **Push**: Push submodule changes to their repos
+4. **Destroy**: `amplifier-dev -d ~/work/feature-name`
+
+The workspace is disposable. Your work persists because you push to the repos.
+
+## Testing Local Changes
+
+### Option 1: Shadow Environment (Recommended)
+
+For complete isolation, use shadow environments:
+
+```python
+# Create isolated environment with your local changes
+shadow.create(local_sources=[
+    "./amplifier-core:microsoft/amplifier-core",
+    "./amplifier-foundation:microsoft/amplifier-foundation"
+])
+
+# Test in complete isolation
+shadow.exec(shadow_id, "uv tool install git+https://github.com/microsoft/amplifier")
+shadow.exec(shadow_id, "amplifier run 'test my changes'")
+
+# Clean up
+shadow.destroy(shadow_id)
 ```
+
+### Option 2: Local Source Overrides
+
+Create `.amplifier/settings.yaml` in this workspace:
+
+```yaml
+sources:
+  amplifier-core:
+    type: local
+    path: ./amplifier-core
+  amplifier-foundation:
+    type: local
+    path: ./amplifier-foundation
+```
+
+Then `amplifier run` uses your workspace copies.
+
+## Working Memory: SCRATCH.md
+
+For long sessions, maintain a `SCRATCH.md`:
+- Current focus (one sentence)
+- Key decisions made
+- Next actions
+
+Prune aggressively - if it doesn't inform the NEXT action, remove it.
 
 ## Project Notes
 
-Add your task-specific notes here:
+[Task-specific notes go here]
