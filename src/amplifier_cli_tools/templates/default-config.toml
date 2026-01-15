@@ -21,6 +21,9 @@ default_prompt = ""
 # Path to custom AGENTS.md template (empty = use built-in)
 agents_template = ""
 
+# Bundle to use in .amplifier/settings.yaml
+bundle = "amplifier-dev"
+
 # Tmux windows: name = "command" (empty = shell only)
 [dev.windows]
 shell = ""           # Two panes, just shell

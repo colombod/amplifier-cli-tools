@@ -63,6 +63,7 @@ class DevConfig:
         main_command: Command to run in the main window
         default_prompt: Default prompt to send after main_command starts
         agents_template: Path to custom AGENTS.md template, empty = use built-in
+        bundle: Bundle name to use in .amplifier/settings.yaml (default: amplifier-dev)
         windows: List of additional tmux windows to create
     """
 
@@ -71,6 +72,7 @@ class DevConfig:
     main_command: str
     default_prompt: str
     agents_template: str  # Path to custom template, empty = use built-in
+    bundle: str  # Bundle name for .amplifier/settings.yaml
     windows: list[WindowConfig]
 
 
@@ -118,6 +120,7 @@ def _get_hardcoded_fallback() -> Config:
             main_command="amplifier run --mode chat",
             default_prompt="",
             agents_template="",
+            bundle="amplifier-dev",
             windows=[
                 WindowConfig(name="shell", command=""),
                 WindowConfig(name="git", command="lazygit"),
@@ -153,6 +156,7 @@ def get_default_config() -> Config:
             main_command=dev_data.get("main_command", ""),
             default_prompt=dev_data.get("default_prompt", ""),
             agents_template=dev_data.get("agents_template", ""),
+            bundle=dev_data.get("bundle", "amplifier-dev"),
             windows=_parse_windows(dev_data.get("windows", {})),
         ),
     )
@@ -218,6 +222,7 @@ def load_config(config_path: Path | None = None) -> Config:
         agents_template=_expand_path(
             dev_data.get("agents_template", defaults.dev.agents_template)
         ),
+        bundle=dev_data.get("bundle", defaults.dev.bundle),
         windows=(
             _parse_windows(dev_data["windows"])
             if "windows" in dev_data

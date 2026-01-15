@@ -216,14 +216,14 @@ def get_nested_setting(key: str) -> Any:
         dev = config.dev
         if setting == "use_tmux":
             return dev.use_tmux
-        elif setting == "bundle":
-            return dev.bundle
         elif setting == "main_command":
             return dev.main_command
         elif setting == "default_prompt":
             return dev.default_prompt
         elif setting == "agents_template":
             return dev.agents_template
+        elif setting == "bundle":
+            return dev.bundle
         elif setting == "repos":
             return dev.repos
         elif setting == "windows":
@@ -302,6 +302,21 @@ def add_to_setting(key: str, value: str) -> str:
     
     current = config[section].get(setting)
     
+    # If setting doesn't exist, check defaults to determine type
+    if current is None:
+        defaults = get_default_config()
+        if section == "dev":
+            if setting == "repos":
+                current = []
+            elif setting == "windows":
+                current = {}
+            else:
+                # Unknown setting, try to infer from value
+                if "=" in value or nested_key:
+                    current = {}
+                else:
+                    current = []
+    
     # Handle list
     if isinstance(current, list):
         if nested_key:
@@ -314,7 +329,7 @@ def add_to_setting(key: str, value: str) -> str:
         return f"Added to {key}"
     
     # Handle dict
-    if isinstance(current, dict) or current is None:
+    if isinstance(current, dict):
         if nested_key:
             # Key provided: dev.windows.git = value
             if setting not in config[section]:
@@ -447,14 +462,14 @@ def reset_setting(key: str | None = None) -> str:
             default_val = dev_defaults.use_tmux
         elif setting == "repos":
             default_val = dev_defaults.repos
-        elif setting == "bundle":
-            default_val = dev_defaults.bundle
         elif setting == "main_command":
             default_val = dev_defaults.main_command
         elif setting == "default_prompt":
             default_val = dev_defaults.default_prompt
         elif setting == "agents_template":
             default_val = dev_defaults.agents_template
+        elif setting == "bundle":
+            default_val = dev_defaults.bundle
         elif setting == "windows":
             # Convert WindowConfig list to dict for storage
             default_val = {w.name: w.command for w in dev_defaults.windows}
@@ -519,10 +534,10 @@ def show_config_full() -> str:
     # Scalars
     scalars = [
         ("use_tmux", config.dev.use_tmux, defaults.dev.use_tmux),
-        ("bundle", config.dev.bundle, defaults.dev.bundle),
         ("main_command", config.dev.main_command, defaults.dev.main_command),
         ("default_prompt", config.dev.default_prompt, defaults.dev.default_prompt),
         ("agents_template", config.dev.agents_template, defaults.dev.agents_template),
+        ("bundle", config.dev.bundle, defaults.dev.bundle),
     ]
     
     for name, current, default in scalars:

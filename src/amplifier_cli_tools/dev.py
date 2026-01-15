@@ -270,8 +270,8 @@ def setup_workspace(workdir: Path, config: DevConfig) -> bool:
         if not create_agents_md(workdir, config):
             return False
 
-        # Create .amplifier/settings.yaml
-        if not create_amplifier_settings(workdir):
+        # Create .amplifier/settings.yaml with bundle from config
+        if not create_amplifier_settings(workdir, config.bundle):
             return False
 
         return True
