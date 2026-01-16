@@ -62,14 +62,15 @@ def check_and_install_tools(interactive: bool = True) -> dict[str, bool]:
 
 
 def _inject_line_if_missing(
-    file_path: Path, search_line: str, insert_block: str
+    file_path: Path, search_line: str, insert_block: str, before_line: str | None = None
 ) -> bool:
     """Inject a block into a file if search_line not found.
 
     Args:
         file_path: Path to file to modify
         search_line: Line to search for (if found, skip injection)
-        insert_block: Block of text to append if search_line not found
+        insert_block: Block of text to insert
+        before_line: If provided, insert before this line. Otherwise append.
 
     Returns:
         True if block was injected, False if already present
@@ -81,9 +82,14 @@ def _inject_line_if_missing(
     if search_line in content:
         return False
 
-    # Append the block
-    with file_path.open("a") as f:
-        f.write("\n" + insert_block)
+    # Insert before specific line or append
+    if before_line and before_line in content:
+        content = content.replace(before_line, insert_block + "\n" + before_line)
+        file_path.write_text(content)
+    else:
+        # Append the block
+        with file_path.open("a") as f:
+            f.write("\n" + insert_block)
     return True
 
 
@@ -283,6 +289,7 @@ end
 -- Start with amplifier config as base
 local config = amplifier_config
 """,
+            before_line="return config",
         )
 
         if base_injected:
