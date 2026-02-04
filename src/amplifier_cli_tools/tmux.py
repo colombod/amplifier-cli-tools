@@ -86,6 +86,13 @@ def create_session(
         prompt: Prompt text to pass to main command.
         windows: List of additional window configurations.
     """
+    # Defensively kill any session with this name to handle race conditions.
+    # This handles the case where tmux-resurrect or tmux-continuum auto-restores
+    # a session AFTER our session_exists() check but BEFORE we create.
+    # Since we're in create_session(), the caller already verified the session
+    # shouldn't exist, so anything here is a zombie/race artifact.
+    kill_session(name)
+
     # Create temp directory for rcfiles
     rcfile_dir = Path(tempfile.gettempdir()) / f"amplifier-dev-rcfiles-{os.getpid()}"
     rcfile_dir.mkdir(parents=True, exist_ok=True)
