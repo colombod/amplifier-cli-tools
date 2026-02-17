@@ -31,40 +31,21 @@ from . import tmux
 RESUME_BUNDLE = "amplifier-dev"
 
 
-def _exec_replace(cmd_parts: list[str]) -> None:
+def _exec_replace(cmd_parts: list[str], cwd: Path | None = None) -> None:
     """Replace current process with the given command (cross-platform).
 
-    On POSIX, uses os.execvp() to replace the process.
-    On Windows, uses the tool's Python venv directly to avoid uv trampoline
-    issues with path canonicalization.
+    On POSIX, uses os.execvp() to replace the process (cwd must be set
+    beforehand via os.chdir since execvp replaces the process).
+    On Windows, uses subprocess.run() with cwd parameter to avoid changing
+    the parent process's working directory, which breaks uv .exe trampolines.
     """
-    import shutil
     import subprocess
     if sys.platform == "win32":
-        # uv's Windows .exe trampolines can fail with "Failed to canonicalize
-        # script path" when CWD differs from install location. Work around by
-        # finding the tool's script and running it via its Python interpreter.
-        exe_path = shutil.which(cmd_parts[0])
-        if exe_path:
-            script_path = exe_path.replace(".exe", "-script.py")
-            if os.path.exists(script_path):
-                # Run via the venv's Python to bypass the trampoline
-                venv_dir = os.path.dirname(exe_path)
-                python_path = os.path.join(venv_dir, "python.exe")
-                if not os.path.exists(python_path):
-                    python_path = os.path.join(venv_dir, "python3.exe")
-                if os.path.exists(python_path):
-                    result = subprocess.run(
-                        [python_path, script_path] + cmd_parts[1:]
-                    )
-                    sys.exit(result.returncode)
-            # Fallback: run the exe with full path
-            result = subprocess.run([exe_path] + cmd_parts[1:])
-            sys.exit(result.returncode)
-        # Last resort: run as-is
-        result = subprocess.run(cmd_parts)
+        result = subprocess.run(cmd_parts, cwd=cwd)
         sys.exit(result.returncode)
     else:
+        if cwd:
+            os.chdir(cwd)
         os.execvp(cmd_parts[0], cmd_parts)
 
 
@@ -369,16 +350,20 @@ def _run_amplifier_directly(
     Returns:
         True (doesn't return on success due to execvp).
     """
-    # Change to workdir first (session list is project-scoped)
-    os.chdir(workdir)
     print(f"Changed to: {workdir}")
+
+    # On POSIX, chdir now since execvp will replace the process.
+    # On Windows, we pass cwd to subprocess.run instead (changing CWD breaks
+    # uv's .exe trampolines which fail to canonicalize their script path).
+    if sys.platform != "win32":
+        os.chdir(workdir)
 
     # Check for existing Amplifier sessions
     if has_amplifier_sessions():
         print("Existing Amplifier sessions detected. Launching resume...")
         cmd_parts = ["amplifier", "resume", "--force-bundle", RESUME_BUNDLE]
         print(f"Running: {' '.join(cmd_parts)}")
-        _exec_replace(cmd_parts)
+        _exec_replace(cmd_parts, cwd=workdir)
         # execvp doesn't return on success
         return True
 
@@ -399,7 +384,7 @@ def _run_amplifier_directly(
     print(f"Running: {' '.join(cmd_parts)}")
 
     # Replace current process with amplifier
-    _exec_replace(cmd_parts)
+    _exec_replace(cmd_parts, cwd=workdir)
 
     # execvp doesn't return on success
     return True
