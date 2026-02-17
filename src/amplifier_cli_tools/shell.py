@@ -132,6 +132,7 @@ _TOOL_PACKAGES: dict[str, dict[str, str]] = {
     # tool_name: {package_manager: package_name}
     "lazygit": {
         "brew": "lazygit",
+        "winget": "JesseDuffield.lazygit",
         # Linux uses GitHub releases - see _install_lazygit_linux()
     },
     "mc": {
@@ -148,6 +149,7 @@ _TOOL_PACKAGES: dict[str, dict[str, str]] = {
         "brew": "git",
         "apt": "git",
         "dnf": "git",
+        "winget": "Git.Git",
     },
     "mosh": {
         "brew": "mosh",
@@ -252,6 +254,9 @@ def _detect_package_manager() -> str | None:
             return "apt"
         if command_exists("dnf"):
             return "dnf"
+    elif system == "Windows":
+        if command_exists("winget"):
+            return "winget"
 
     return None
 
@@ -306,7 +311,12 @@ def try_install_tool(name: str) -> bool:
             return False
 
     # Build install command
-    if pkg_manager == "brew":
+    if pkg_manager == "winget":
+        install_cmd = [
+            "winget", "install", "--id", package_name,
+            "--silent", "--accept-source-agreements", "--accept-package-agreements",
+        ]
+    elif pkg_manager == "brew":
         install_cmd = ["brew", "install", package_name]
     elif pkg_manager == "apt":
         if _has_sudo():

@@ -40,7 +40,7 @@ def _cmd_run(args: argparse.Namespace) -> int:
     """Handle the default run command (create/attach workspace)."""
     try:
         config = load_config(args.config)
-        workdir = args.workdir.resolve()
+        workdir = args.workdir.expanduser().resolve()
 
         # Determine tmux mode: CLI flag overrides config
         use_tmux = args.use_tmux if args.use_tmux is not None else config.dev.use_tmux

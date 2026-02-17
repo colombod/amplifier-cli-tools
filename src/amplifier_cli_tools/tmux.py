@@ -173,10 +173,20 @@ def attach_session(name: str) -> None:
 
     if os.environ.get("TMUX"):
         # Inside tmux - switch to session
-        os.execvp("tmux", ["tmux", "switch-client", "-t", name])
+        if sys.platform == "win32":
+            import subprocess
+            result = subprocess.run(["tmux", "switch-client", "-t", name])
+            sys.exit(result.returncode)
+        else:
+            os.execvp("tmux", ["tmux", "switch-client", "-t", name])
     else:
         # Outside tmux - attach to session
-        os.execvp("tmux", ["tmux", "attach-session", "-t", name])
+        if sys.platform == "win32":
+            import subprocess
+            result = subprocess.run(["tmux", "attach-session", "-t", name])
+            sys.exit(result.returncode)
+        else:
+            os.execvp("tmux", ["tmux", "attach-session", "-t", name])
 
 
 def _create_main_rcfile(

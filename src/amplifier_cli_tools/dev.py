@@ -19,6 +19,7 @@ import shutil
 
 import os
 import shlex
+import sys
 
 from .config import DevConfig
 from .shell import ensure_commands, run, ShellError
@@ -28,6 +29,20 @@ from . import tmux
 
 # Bundle to use when resuming sessions
 RESUME_BUNDLE = "amplifier-dev"
+
+
+def _exec_replace(cmd_parts: list[str]) -> None:
+    """Replace current process with the given command (cross-platform).
+
+    On POSIX, uses os.execvp() to replace the process.
+    On Windows, uses subprocess.run() + sys.exit() since execvp is not available.
+    """
+    import subprocess
+    if sys.platform == "win32":
+        result = subprocess.run(cmd_parts)
+        sys.exit(result.returncode)
+    else:
+        _exec_replace(cmd_parts)
 
 
 def has_amplifier_sessions() -> bool:
@@ -340,7 +355,7 @@ def _run_amplifier_directly(
         print("Existing Amplifier sessions detected. Launching resume...")
         cmd_parts = ["amplifier", "resume", "--force-bundle", RESUME_BUNDLE]
         print(f"Running: {' '.join(cmd_parts)}")
-        os.execvp(cmd_parts[0], cmd_parts)
+        _exec_replace(cmd_parts)
         # execvp doesn't return on success
         return True
 
@@ -361,7 +376,7 @@ def _run_amplifier_directly(
     print(f"Running: {' '.join(cmd_parts)}")
 
     # Replace current process with amplifier
-    os.execvp(cmd_parts[0], cmd_parts)
+    _exec_replace(cmd_parts)
 
     # execvp doesn't return on success
     return True
@@ -394,6 +409,11 @@ def run_dev(
     Returns:
         True on success, False on failure.
     """
+    # Auto-detect Windows: tmux is not natively available
+    if sys.platform == "win32" and not no_tmux:
+        print("Windows detected: running without tmux (use WSL for tmux support)")
+        no_tmux = True
+
     # Build list of required commands
     required_commands = ["git"]
     if not no_tmux:
