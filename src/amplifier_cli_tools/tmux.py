@@ -7,10 +7,10 @@ from __future__ import annotations
 
 import os
 import shlex
+import subprocess
+import sys
 import tempfile
 from pathlib import Path
-
-import subprocess
 
 from .config import WindowConfig
 from .shell import command_exists, run, try_install_tool
@@ -175,6 +175,7 @@ def attach_session(name: str) -> None:
         # Inside tmux - switch to session
         if sys.platform == "win32":
             import subprocess
+
             result = subprocess.run(["tmux", "switch-client", "-t", name])
             sys.exit(result.returncode)
         else:
@@ -183,6 +184,7 @@ def attach_session(name: str) -> None:
         # Outside tmux - attach to session
         if sys.platform == "win32":
             import subprocess
+
             result = subprocess.run(["tmux", "attach-session", "-t", name])
             sys.exit(result.returncode)
         else:
