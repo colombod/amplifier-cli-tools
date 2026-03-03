@@ -41,14 +41,18 @@ config.line_height = 1.1
 
 -- Appearance (Catppuccin Mocha - matches tmux theme)
 config.color_scheme = "Catppuccin Mocha"
+config.automatically_reload_config = true
 
 -- Window appearance
 if is_windows then
 	-- Windows: minimal - just resize borders, drag from tab bar
 	config.window_decorations = "RESIZE"
-else
-	-- Mac/Linux: integrated buttons in tab bar (no separate title bar)
+elseif is_mac then
+	-- Mac: integrated buttons in tab bar (no separate title bar)
 	config.window_decorations = "INTEGRATED_BUTTONS|RESIZE"
+elseif is_linux then
+	-- Linux: hide native title bar completely
+	config.window_decorations = "INTEGRATED_BUTTONS"
 end
 
 config.window_padding = {
@@ -147,7 +151,7 @@ wezterm.on("format-tab-title", function(tab, tabs, panes, config, hover, max_wid
 		title = tab.active_pane.title
 		-- Remove .exe extension and path
 		title = title:gsub("%.exe$", "")
-		title = title:gsub(".*[/\\]", "")
+		title = title:gsub(".*[/\]", "")
 		-- Capitalize first letter
 		title = title:sub(1, 1):upper() .. title:sub(2)
 	end
@@ -221,7 +225,7 @@ config.keys = {
 					name = current:match("^(.+):%w+$") or current
 					-- If still empty, use pane title
 					if #name == 0 then
-						name = pane:get_title():gsub("%.exe$", ""):gsub(".*[/\\]", "")
+						name = pane:get_title():gsub("%.exe$", ""):gsub(".*[/\]", "")
 					end
 				end
 
@@ -231,14 +235,14 @@ config.keys = {
 						title = "Pick a tab color  [ESC to cancel]",
 						choices = {
 							{ label = "⬜  Default (no color)" },
-							{ label = "🔴  Red", id = "red" },
-							{ label = "🟢  Green", id = "green" },
-							{ label = "🔵  Blue", id = "blue" },
-							{ label = "🟡  Yellow", id = "yellow" },
-							{ label = "🟣  Purple", id = "purple" },
-							{ label = "🪷  Pink", id = "pink" },
-							{ label = "🟠  Orange", id = "orange" },
-							{ label = "🪵  Teal", id = "teal" },
+							{ label = "🟥  Red", id = "red" },
+							{ label = "🟩  Green", id = "green" },
+							{ label = "🟦  Blue", id = "blue" },
+							{ label = "🟨  Yellow", id = "yellow" },
+							{ label = "🟪  Purple", id = "purple" },
+							{ label = "🌸  Pink", id = "pink" },
+							{ label = "🟧  Orange", id = "orange" },
+							{ label = "🧩  Teal", id = "teal" },
 						},
 						action = wezterm.action_callback(function(window, pane, id)
 							if id then
