@@ -8,6 +8,7 @@ local config = wezterm.config_builder()
 -- Detect OS
 local is_windows = wezterm.target_triple:find("windows") ~= nil
 local is_mac = wezterm.target_triple:find("darwin") ~= nil
+local is_linux = wezterm.target_triple:find("linux") ~= nil
 
 -- Windows: use PowerShell instead of cmd.exe
 if is_windows then
@@ -61,8 +62,10 @@ config.use_fancy_tab_bar = true
 -- Make integrated buttons native style, on the right to reduce gap
 if is_windows then
 	config.integrated_title_button_style = "Windows"
-else
+elseif is_mac then
 	config.integrated_title_button_style = "MacOsNative"
+elseif is_linux then
+	config.integrated_title_button_style = "Gnome"
 end
 config.integrated_title_button_alignment = "Right"
 
