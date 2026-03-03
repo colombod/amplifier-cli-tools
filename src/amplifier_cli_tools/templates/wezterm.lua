@@ -7,8 +7,7 @@ local config = wezterm.config_builder()
 
 -- Helper function to check if a font is installed
 function font_is_installed(name)
-	local fonts = wezterm.enumerate_fonts()
-	for _, font in ipairs(fonts) do
+	for _, font in ipairs(wezterm.enumerate_fonts()) do
 		if font.family == name then
 			return true
 		end
