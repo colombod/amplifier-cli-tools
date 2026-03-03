@@ -5,6 +5,17 @@
 local wezterm = require("wezterm")
 local config = wezterm.config_builder()
 
+-- Helper function to check if a font is installed
+function font_is_installed(name)
+	local fonts = wezterm.font_locator.get_font_families()
+	for _, font_family in ipairs(fonts) do
+		if font_family == name then
+			return true
+		end
+	end
+	return false
+end
+
 -- Detect OS
 local is_windows = wezterm.target_triple:find("windows") ~= nil
 local is_mac = wezterm.target_triple:find("darwin") ~= nil
@@ -71,11 +82,13 @@ config.integrated_title_button_alignment = "Right"
 
 -- Tab bar colors to match Catppuccin Mocha
 config.window_frame = {
-	font = wezterm.font("JetBrainsMono Nerd Font"),
 	font_size = 13.0,
 	active_titlebar_bg = "#1e1e2e",
 	inactive_titlebar_bg = "#1e1e2e",
 }
+if font_is_installed("JetBrainsMono Nerd Font") then
+	config.window_frame.font = wezterm.font("JetBrainsMono Nerd Font")
+end
 
 config.colors = {
 	tab_bar = {
